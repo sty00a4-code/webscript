@@ -24,7 +24,7 @@ pub enum Definition {
         export: bool,
         name: Located<String>,
         params: Vec<Located<Parameter>>,
-        result: Located<Type>,
+        result: Option<Located<Type>>,
         body: Located<Body>,
     },
 }

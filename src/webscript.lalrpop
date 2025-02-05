@@ -29,6 +29,10 @@ String: String = <s:r#""(\\.|[^"])*""#> => {
     s.pop();
     s.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r").replace("\\\"", "\"")
 };
+IdentString: String = {
+    Ident, 
+    String, 
+};
 
 Seperated<T, U>: Vec<T> = {
     <mut v:(<T> U)*> <e:T?> => match e {
@@ -48,28 +52,14 @@ pub Module: Module = {
     <defs:Located<Definition>*> => Module(defs),
 };
 pub Definition: Definition = {
-    "pub" "fn" <name:Located<Ident>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
+    "pub" "fn" <name:Located<IdentString>> <params:CommaDelim<"(", Located<Parameter>, ")">> <result:ResultType?> <body:Located<Body>> => Definition::Fn {
         export: true,
         name,
         params,
         result,
         body,
     },
-    "fn" <name:Located<Ident>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
-        export: false,
-        name,
-        params,
-        result,
-        body,
-    },
-    "pub" "fn" <name:Located<String>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
-        export: true,
-        name,
-        params,
-        result,
-        body,
-    },
-    "fn" <name:Located<String>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
+    "fn" <name:Located<IdentString>> <params:CommaDelim<"(", Located<Parameter>, ")">> <result:ResultType?> <body:Located<Body>> => Definition::Fn {
         export: false,
         name,
         params,
@@ -77,6 +67,7 @@ pub Definition: Definition = {
         body,
     },
 };
+pub ResultType: Located<Type> = ":" <typ:Located<Type>> => typ;
 pub Parameter: Parameter = {
     <name:Located<Ident>> ":" <typ:Located<Type>> => Parameter {
         name,
