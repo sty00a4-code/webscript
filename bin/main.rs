@@ -1,9 +1,9 @@
-extern crate webscript_lang;
 extern crate lalrpop_util;
-
-use std::{env, fs, process};
+extern crate wasmtime;
+extern crate webscript_lang;
 
 use lalrpop_util::lalrpop_mod;
+use std::{env, fs, process};
 
 lalrpop_mod!(pub webscript);
 
@@ -16,14 +16,14 @@ fn main() {
                 process::exit(1);
             })
             .unwrap();
-        let chunk = webscript::ChunkParser::new()
+        let module = webscript::ModuleParser::new()
             .parse(&text)
             .map_err(|err| {
                 eprintln!("ERROR {path}: {err}");
                 process::exit(1);
             })
             .unwrap();
-        dbg!(chunk);
+        dbg!(module);
     } else {
         println!("{USAGE}");
     }

@@ -17,13 +17,31 @@ impl<T: Debug + Clone> Debug for Located<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Chunk(pub Vec<Located<Statement>>);
+pub struct Module(pub Vec<Located<Definition>>);
+#[derive(Debug, Clone)]
+pub enum Definition {
+    Fn {
+        export: bool,
+        name: Located<String>,
+        params: Vec<Located<Parameter>>,
+        result: Located<Type>,
+        body: Located<Body>,
+    },
+}
+#[derive(Debug, Clone)]
+pub struct Parameter {
+    pub name: Located<String>,
+    pub typ: Located<Type>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Body(pub Vec<Located<Statement>>);
 
 #[derive(Debug, Clone)]
 pub enum Statement {
     Block(Vec<Located<Self>>),
     Let {
-        ident: Located<String>,
+        param: Located<Parameter>,
         expr: Located<Expression>,
     },
     Assign {
@@ -41,7 +59,7 @@ pub enum Statement {
         else_case: Option<Box<Located<Self>>>,
     },
     IfSome {
-        ident: Located<String>,
+        param: Located<Parameter>,
         expr: Located<Expression>,
         case: Box<Located<Self>>,
         else_case: Option<Box<Located<Self>>>,
@@ -51,12 +69,12 @@ pub enum Statement {
         body: Box<Located<Self>>,
     },
     WhileSome {
-        ident: Located<String>,
+        param: Located<Parameter>,
         expr: Located<Expression>,
         body: Box<Located<Self>>,
     },
     For {
-        ident: Located<String>,
+        param: Located<Parameter>,
         iter: Located<Expression>,
         body: Box<Located<Self>>,
     },
@@ -136,10 +154,6 @@ pub enum Atom {
     Tuple(Vec<Located<Expression>>),
     Vector(Vec<Located<Expression>>),
     Object(Vec<(Located<String>, Located<Expression>)>),
-    Fn {
-        params: Vec<Located<String>>,
-        body: Box<Located<Statement>>,
-    }
 }
 #[derive(Debug, Clone)]
 pub enum Path {

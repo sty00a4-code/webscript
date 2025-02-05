@@ -44,30 +44,69 @@ CommaDelim<L, T, R>: Vec<T> = L <v:Comma<T>> R => v;
 
 // AST
 
-pub Chunk: Chunk = <v:Located<Statement>*> => Chunk(Vec::from(v));
-pub Block: Statement = "{" <v:Located<Statement>*> "}" => Statement::Block(v);
+pub Module: Module = {
+    <defs:Located<Definition>*> => Module(defs),
+};
+pub Definition: Definition = {
+    "pub" "fn" <name:Located<Ident>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
+        export: true,
+        name,
+        params,
+        result,
+        body,
+    },
+    "fn" <name:Located<Ident>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
+        export: false,
+        name,
+        params,
+        result,
+        body,
+    },
+    "pub" "fn" <name:Located<String>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
+        export: true,
+        name,
+        params,
+        result,
+        body,
+    },
+    "fn" <name:Located<String>> <params:CommaDelim<"(", Located<Parameter>, ")">> ":" <result:Located<Type>> <body:Located<Body>> => Definition::Fn {
+        export: false,
+        name,
+        params,
+        result,
+        body,
+    },
+};
+pub Parameter: Parameter = {
+    <name:Located<Ident>> ":" <typ:Located<Type>> => Parameter {
+        name,
+        typ,
+    },
+};
+pub Body: Body = "{" <stats:Located<Statement>*> "}"=> Body(stats);
+pub Block: Statement = "{" <stats:Located<Statement>*> "}" => Statement::Block(stats);
 pub Statement: Statement = {
     "do" <block:Block> => block,
     // let
-    "let" <ident: Located<Ident>> "=" <expr:Located<Expression>> => Statement::Let {
-        ident,
+    "let" <param: Located<Parameter>> "=" <expr:Located<Expression>> => Statement::Let {
+        param,
         expr
     },
     // if some
-    "if" <ident:Located<Ident>> "::" <expr:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Statement>> => Statement::IfSome {
-        ident,
+    "if" <param:Located<Parameter>> "=" <expr:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Statement>> => Statement::IfSome {
+        param,
         expr,
         case: Box::new(case),
         else_case: Some(Box::new(else_case)),
     },
-    "if" <ident:Located<Ident>> "::" <expr:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Block>> => Statement::IfSome {
-        ident,
+    "if" <param:Located<Parameter>> "=" <expr:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Block>> => Statement::IfSome {
+        param,
         expr,
         case: Box::new(case),
         else_case: Some(Box::new(else_case)),
     },
-    "if" <ident:Located<Ident>> "::" <expr:Located<Expression>> <case:Located<Block>> => Statement::IfSome {
-        ident,
+    "if" <param:Located<Parameter>> "=" <expr:Located<Expression>> <case:Located<Block>> => Statement::IfSome {
+        param,
         expr,
         case: Box::new(case),
         else_case: None,
@@ -89,8 +128,8 @@ pub Statement: Statement = {
         else_case: None,
     },
     // while some
-    "while" <ident:Located<Ident>> "::" <expr:Located<Expression>> <body:Located<Block>> => Statement::WhileSome {
-        ident,
+    "while" <param:Located<Parameter>> "=" <expr:Located<Expression>> <body:Located<Block>> => Statement::WhileSome {
+        param,
         expr,
         body: Box::new(body),
     },
@@ -100,8 +139,8 @@ pub Statement: Statement = {
         body: Box::new(body),
     },
     // for
-    "for" <ident:Located<Ident>> "::" <iter:Located<Expression>> <body:Located<Block>> => Statement::For {
-        ident,
+    "for" <param:Located<Parameter>> "=" <iter:Located<Expression>> <body:Located<Block>> => Statement::For {
+        param,
         iter,
         body: Box::new(body),
     },
@@ -233,10 +272,6 @@ pub Atom: Atom = {
     },
     <v:CommaDelim<"[", Located<Expression>, "]">> => Atom::Vector(v),
     <v:CommaDelim<"@{", KeyValue, "}">> => Atom::Object(v),
-    "fn" <params:CommaDelim<"(", Located<Ident>, ")">> <body:Located<Block>> => Atom::Fn {
-        params,
-        body: Box::new(body),
-    },
 };
 pub KeyValue: (Located<String>, Located<Expression>) = {
     <key:Located<Ident>> "=" <value:Located<Expression>> => (key, value),
