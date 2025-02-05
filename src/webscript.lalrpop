@@ -1,0 +1,272 @@
+use std::str::FromStr;
+use webscript_lang::ast::*;
+
+grammar;
+
+Located<T>: Located<T> = <start:@L> <v:T> <end:@R> => Located::new(v, start..end);
+Ident: String = <start:@L> <s:r"[a-zA-Z_]([a-zA-Z_0-9])*"> => s.to_string();
+Int: i64 = <s:r"[0-9]+"> => i64::from_str(s).unwrap();
+Float: f64 = <s:r"[0-9]+\.[0-9]+|[0-9]+\.|\.[0-9]+"> => f64::from_str(s).unwrap();
+Char: char = <s:r"\'\\.\'|\'.\'"> => {
+    let mut s = s.to_string();
+    s.remove(0);
+    s.pop();
+    if s.starts_with('\\') {
+        s.remove(0);
+        match s.chars().next().unwrap() {
+            'n' => '\n',
+            't' => '\t',
+            'r' => '\r',
+            c => c
+        }
+    } else {
+        s.remove(0)
+    }
+};
+String: String = <s:r#""(\\.|[^"])*""#> => {
+    let mut s = s.to_string();
+    s.remove(0);
+    s.pop();
+    s.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r").replace("\\\"", "\"")
+};
+
+Seperated<T, U>: Vec<T> = {
+    <mut v:(<T> U)*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+Comma<T>: Vec<T> = Seperated<T, ",">;
+CommaDelim<L, T, R>: Vec<T> = L <v:Comma<T>> R => v;
+
+// AST
+
+pub Chunk: Chunk = <v:Located<Statement>*> => Chunk(Vec::from(v));
+pub Block: Statement = "{" <v:Located<Statement>*> "}" => Statement::Block(v);
+pub Statement: Statement = {
+    "do" <block:Block> => block,
+    // let
+    "let" <ident: Located<Ident>> "=" <expr:Located<Expression>> => Statement::Let {
+        ident,
+        expr
+    },
+    // if some
+    "if" <ident:Located<Ident>> "::" <expr:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Statement>> => Statement::IfSome {
+        ident,
+        expr,
+        case: Box::new(case),
+        else_case: Some(Box::new(else_case)),
+    },
+    "if" <ident:Located<Ident>> "::" <expr:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Block>> => Statement::IfSome {
+        ident,
+        expr,
+        case: Box::new(case),
+        else_case: Some(Box::new(else_case)),
+    },
+    "if" <ident:Located<Ident>> "::" <expr:Located<Expression>> <case:Located<Block>> => Statement::IfSome {
+        ident,
+        expr,
+        case: Box::new(case),
+        else_case: None,
+    },
+    // if
+    "if" <cond:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Statement>> => Statement::If {
+        cond,
+        case: Box::new(case),
+        else_case: Some(Box::new(else_case)),
+    },
+    "if" <cond:Located<Expression>> <case:Located<Block>> "else" <else_case:Located<Block>> => Statement::If {
+        cond,
+        case: Box::new(case),
+        else_case: Some(Box::new(else_case)),
+    },
+    "if" <cond:Located<Expression>> <case:Located<Block>> => Statement::If {
+        cond,
+        case: Box::new(case),
+        else_case: None,
+    },
+    // while some
+    "while" <ident:Located<Ident>> "::" <expr:Located<Expression>> <body:Located<Block>> => Statement::WhileSome {
+        ident,
+        expr,
+        body: Box::new(body),
+    },
+    // while
+    "while" <cond:Located<Expression>> <body:Located<Block>> => Statement::While {
+        cond,
+        body: Box::new(body),
+    },
+    // for
+    "for" <ident:Located<Ident>> "::" <iter:Located<Expression>> <body:Located<Block>> => Statement::For {
+        ident,
+        iter,
+        body: Box::new(body),
+    },
+    // control flow
+    "break" => Statement::Break,
+    "continue" => Statement::Continue,
+    "return" <expr:Located<Expression>> => Statement::Return(expr),
+    // assign
+    <path:Located<Path>> <op:AssignOperator> <expr:Located<Expression>> => Statement::Assign {
+        op,
+        path,
+        expr
+    },
+    // call
+    <path:Located<Path>> <args:CommaDelim<"(", Located<Expression>, ")">> => Statement::Call {
+        path,
+        args,
+    },
+};
+pub AssignOperator: AssignOperator = {
+    "=" => AssignOperator::Equal,
+    "+=" => AssignOperator::Plus,
+    "-=" => AssignOperator::Minus,
+    "*=" => AssignOperator::Star,
+    "/=" => AssignOperator::Slash,
+    "%=" => AssignOperator::Percent,
+    "^=" => AssignOperator::Exponent,
+};
+
+pub Expression: Expression = {
+    <expr:Chain> => expr,
+};
+
+Binary<Self, Op, Next>: Expression = {
+    <left:Located<Self>> <op:Op> <right:Located<Next>> => Expression::Binary {
+        op: op,
+        left: Box::new(left),
+        right: Box::new(right),
+    },
+    Next,
+};
+Unary<Self, Op, Next>: Expression = {
+    <op:Op> <right:Located<Self>> => Expression::Unary {
+        op: op,
+        right: Box::new(right),
+    },
+    Next,
+};
+pub Chain = Binary<Chain, ChainOperator, Logic>;
+ChainOperator: BinaryOperator = {
+    "->" => BinaryOperator::Then,
+};
+pub Logic = Binary<Logic, LogicOperator, Not>;
+LogicOperator: BinaryOperator = {
+    "and" => BinaryOperator::And,
+    "or" => BinaryOperator::Or,
+};
+pub Not = Unary<Not, NotOperator, Comparison>;
+NotOperator: UnaryOperator = {
+    "not" => UnaryOperator::Not,
+};
+pub Comparison = Binary<Comparison, ComparisonOperator, Arithmetic>;
+ComparisonOperator: BinaryOperator = {
+    "==" => BinaryOperator::EqualEqual,
+    "!=" => BinaryOperator::ExclamationEqual,
+    "<" => BinaryOperator::Less,
+    ">" => BinaryOperator::Greater,
+    "<=" => BinaryOperator::LessEqual,
+    ">=" => BinaryOperator::GreaterEqual,
+};
+pub Arithmetic = Binary<Arithmetic, ArithmeticOperator, Term>;
+ArithmeticOperator: BinaryOperator = {
+    "+" => BinaryOperator::Plus,
+    "-" => BinaryOperator::Minus,
+};
+pub Term = Binary<Term, TermOperator, Exponent>;
+TermOperator: BinaryOperator = {
+    "*" => BinaryOperator::Star,
+    "/" => BinaryOperator::Slash,
+    "%" => BinaryOperator::Percent,
+};
+pub Exponent = Binary<Exponent, ExponentOperator, Negative>;
+ExponentOperator: BinaryOperator = {
+    "^" => BinaryOperator::Exponent,
+};
+pub Negative = Unary<Negative, NegativeOperator, Call>;
+NegativeOperator: UnaryOperator = {
+    "-" => UnaryOperator::Minus,
+};
+pub Call: Expression = {
+    <head:Located<Call>> <args:CommaDelim<"(", Located<Expression>, ")">> => Expression::Call {
+        head: Box::new(head),
+        args,
+    },
+    Field,
+};
+pub Field: Expression = {
+    <head:Located<Field>> "." <field:Located<Ident>> => Expression::Field {
+        head: Box::new(head),
+        field: field,
+    },
+    <head:Located<Field>> "." <field:Located<String>> => Expression::Field {
+        head: Box::new(head),
+        field: field,
+    },
+    <head:Located<Field>> "[" <index:Located<Expression>> "]" => Expression::Index {
+        head: Box::new(head),
+        index: Box::new(index),
+    },
+    <atom:Atom> => Expression::Atom(atom),
+};
+
+pub Atom: Atom = {
+    <ident:Ident> => match ident.as_str() {
+        "null" => Atom::Null,
+        "true" => Atom::Bool(true),
+        "false" => Atom::Bool(false),
+        _ => Atom::Ident(ident),
+    },
+    <v:Int> => Atom::Int(v),
+    <v:Float> => Atom::Float(v),
+    <v:Char> => Atom::Char(v),
+    <v:String> => Atom::String(v),
+    <mut v:CommaDelim<"(", Located<Expression>, ")">> => if v.len() == 1 {
+        let expr = v.remove(0);
+        Atom::Expression(Box::new(expr))
+    } else {
+        Atom::Tuple(v)
+    },
+    <v:CommaDelim<"[", Located<Expression>, "]">> => Atom::Vector(v),
+    <v:CommaDelim<"@{", KeyValue, "}">> => Atom::Object(v),
+    "fn" <params:CommaDelim<"(", Located<Ident>, ")">> <body:Located<Block>> => Atom::Fn {
+        params,
+        body: Box::new(body),
+    },
+};
+pub KeyValue: (Located<String>, Located<Expression>) = {
+    <key:Located<Ident>> "=" <value:Located<Expression>> => (key, value),
+    <key:Located<String>> "=" <value:Located<Expression>> => (key, value),
+};
+
+pub Path: Path = {
+    <head:Located<Path>> "." <field:Located<Ident>> => Path::Field {
+        head: Box::new(head),
+        field: field,
+    },
+    <head:Located<Path>> "." <field:Located<String>> => Path::Field {
+        head: Box::new(head),
+        field: field,
+    },
+    <head:Located<Path>> "[" <index:Located<Expression>> "]" => Path::Index {
+        head: Box::new(head),
+        index: Box::new(index),
+    },
+    <ident:Ident> => Path::Ident(ident),
+};
+
+pub Type: Type = {
+    <head:Located<Type>> "(" <sub:Located<Type>> ")" => Type::Generic {
+        head: Box::new(head),
+        sub: Box::new(sub),
+    },
+    <head:Located<Type>> "[" <size:Int?> "]" => Type::Array {
+        head: Box::new(head),
+        size,
+    },
+    <ident:Ident> => Type::Ident(ident),
+};

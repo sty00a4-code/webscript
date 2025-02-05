@@ -1,0 +1,13 @@
+[package]
+name = "webscript-lang"
+version = "0.1.0"
+
+[[bin]]
+name = "ws"
+path = "bin/main.rs"
+
+[build-dependencies]
+lalrpop = "0.22.1"
+
+[dependencies]
+lalrpop-util = { version = "0.21.0", features = ["lexer", "unicode"] }
