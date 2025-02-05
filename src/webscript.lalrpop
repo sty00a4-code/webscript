@@ -246,11 +246,11 @@ pub KeyValue: (Located<String>, Located<Expression>) = {
 pub Path: Path = {
     <head:Located<Path>> "." <field:Located<Ident>> => Path::Field {
         head: Box::new(head),
-        field: field,
+        field,
     },
     <head:Located<Path>> "." <field:Located<String>> => Path::Field {
         head: Box::new(head),
-        field: field,
+        field,
     },
     <head:Located<Path>> "[" <index:Located<Expression>> "]" => Path::Index {
         head: Box::new(head),
