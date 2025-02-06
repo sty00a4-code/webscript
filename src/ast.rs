@@ -170,11 +170,7 @@ pub enum Path {
 #[derive(Debug, Clone)]
 pub enum Type {
     Ident(String),
-    Generic {
-        head: Box<Located<Self>>,
-        sub: Box<Located<Self>>,
-    },
-    Array {
+    List {
         head: Box<Located<Self>>,
         size: Option<i64>,
     },

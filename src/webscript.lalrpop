@@ -286,10 +286,6 @@ pub Path: Path = {
 };
 
 pub Type: Type = {
-    <head:Located<Type>> "(" <sub:Located<Type>> ")" => Type::Generic {
-        head: Box::new(head),
-        sub: Box::new(sub),
-    },
     <head:Located<Type>> "[" <size:Int?> "]" => Type::Array {
         head: Box::new(head),
         size,
