@@ -12,6 +12,7 @@ pub struct Compiler {
 pub struct FunctionFrame {
     pub instrs: Vec<String>,
     pub parameter: Vec<(String, Type)>,
+    pub result: Vec<Type>,
     pub locals: Vec<(String, Type)>,
 }
 pub type Register = u16;

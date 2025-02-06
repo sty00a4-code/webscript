@@ -52,22 +52,22 @@ pub Module: Module = {
     <defs:Located<Definition>*> => Module(defs),
 };
 pub Definition: Definition = {
-    "pub" "fn" <name:Located<IdentString>> <params:CommaDelim<"(", Located<Parameter>, ")">> <result:ResultType?> <body:Located<Body>> => Definition::Fn {
+    "pub" "fn" <name:Located<IdentString>> <params:CommaDelim<"(", Located<Parameter>, ")">> <result:ResultType?> <body:Located<Body>> => Definition::Fn(Function {
         export: true,
         name,
         params,
-        result,
+        result: result.unwrap_or_default(),
         body,
-    },
-    "fn" <name:Located<IdentString>> <params:CommaDelim<"(", Located<Parameter>, ")">> <result:ResultType?> <body:Located<Body>> => Definition::Fn {
+    }),
+    "fn" <name:Located<IdentString>> <params:CommaDelim<"(", Located<Parameter>, ")">> <result:ResultType?> <body:Located<Body>> => Definition::Fn(Function {
         export: false,
         name,
         params,
-        result,
+        result: result.unwrap_or_default(),
         body,
-    },
+    }),
 };
-pub ResultType: Located<Type> = ":" <typ:Located<Type>> => typ;
+pub ResultType: Vec<Located<Type>> = ":" <types:Comma<Located<Type>>> => types;
 pub Parameter: Parameter = {
     <name:Located<Ident>> ":" <typ:Located<Type>> => Parameter {
         name,
@@ -286,9 +286,12 @@ pub Path: Path = {
 };
 
 pub Type: Type = {
-    <head:Located<Type>> "[" <size:Int?> "]" => Type::Array {
-        head: Box::new(head),
-        size,
-    },
-    <ident:Ident> => Type::Ident(ident),
+    "bool" => Type::Bool,
+    "i32" => Type::Num(NumType::I32),
+    "i64" => Type::Num(NumType::I64),
+    "u32" => Type::Num(NumType::U32),
+    "u64" => Type::Num(NumType::U64),
+    "f32" => Type::Num(NumType::F32),
+    "f64" => Type::Num(NumType::F64),
+    "v128" => Type::Vec,
 };

@@ -20,13 +20,15 @@ impl<T: Debug + Clone> Debug for Located<T> {
 pub struct Module(pub Vec<Located<Definition>>);
 #[derive(Debug, Clone)]
 pub enum Definition {
-    Fn {
-        export: bool,
-        name: Located<String>,
-        params: Vec<Located<Parameter>>,
-        result: Option<Located<Type>>,
-        body: Located<Body>,
-    },
+    Fn(Function),
+}
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub export: bool,
+    pub name: Located<String>,
+    pub params: Vec<Located<Parameter>>,
+    pub result: Vec<Located<Type>>,
+    pub body: Located<Body>,
 }
 #[derive(Debug, Clone)]
 pub struct Parameter {
@@ -167,11 +169,18 @@ pub enum Path {
         index: Box<Located<Expression>>,
     },
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    Ident(String),
-    List {
-        head: Box<Located<Self>>,
-        size: Option<i64>,
-    },
+    Bool,
+    Num(NumType),
+    Vec,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumType {
+    I32,
+    I64,
+    U32,
+    U64,
+    F32,
+    F64,
 }
